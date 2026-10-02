@@ -1,0 +1,30 @@
+{
+  "app": {
+    "name": "AgriSync",
+    "tagline": "Multilingual Crop Advisory & Machinery Sharing Platform",
+    "status": "System Status",
+    "online": "Online",
+    "offline": "Offline",
+    "connecting": "Connecting..."
+  },
+  "nav": {
+    "home": "Home",
+    "advisory": "Crop Advisory",
+    "machinery": "Machinery",
+    "community": "Groups & Maps",
+    "profile": "Profile"
+  },
+  "health": {
+    "title": "System Connectivity & Health",
+    "backend": "FastAPI Backend",
+    "database": "PostgreSQL 16 + PostGIS",
+    "redis": "Redis Cache",
+    "source_notice": "Agronomy advisory data driven by verified rules (source tagged)."
+  },
+  "language": {
+    "select": "Language",
+    "en": "English",
+    "hi": "हिन्दी (Hindi)",
+    "mr": "मराठी (Marathi)"
+  }
+}

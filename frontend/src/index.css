@@ -1,0 +1,37 @@
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen antialiased select-none;
+  }
+}
+
+/* Custom Mobile & PWA Utility Classes */
+.touch-target {
+  @apply min-h-[48px] min-w-[48px] flex items-center justify-center;
+}
+
+.glass-card {
+  @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/60 shadow-sm rounded-2xl;
+}
+
+.primary-gradient {
+  @apply bg-gradient-to-r from-agri-green-700 via-agri-green-600 to-emerald-600 text-white;
+}
+
+/* Hide scrollbars for clean mobile UX */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

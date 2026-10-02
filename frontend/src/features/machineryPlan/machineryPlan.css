@@ -1,0 +1,9 @@
+.plan-timeline {
+  scrollbar-width: thin;
+}
+
+@media (max-width: 767px) {
+  .plan-timeline {
+    max-width: 100%;
+  }
+}

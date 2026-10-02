@@ -1,0 +1,32 @@
+{
+  "ph": {
+    "unit": "pH",
+    "low": {"min": null, "max": 5.5, "source": "SAMPLE - verify with ICAR / state agriculture dept"},
+    "adequate": {"min": 5.5, "max": 7.5, "source": "SAMPLE - verify with ICAR / state agriculture dept"},
+    "high": {"min": 7.5, "max": 14, "source": "SAMPLE - verify with ICAR / state agriculture dept"}
+  },
+  "nitrogen": {
+    "unit": "kg/ha",
+    "low": {"min": null, "max": 280, "source": "SAMPLE - verify with ICAR / state agriculture dept"},
+    "adequate": {"min": 280, "max": 560, "source": "SAMPLE - verify with ICAR / state agriculture dept"},
+    "high": {"min": 560, "max": null, "source": "SAMPLE - verify with ICAR / state agriculture dept"}
+  },
+  "phosphorus": {
+    "unit": "kg/ha",
+    "low": {"min": null, "max": 22, "source": "SAMPLE - verify with ICAR / state agriculture dept"},
+    "adequate": {"min": 22, "max": 56, "source": "SAMPLE - verify with ICAR / state agriculture dept"},
+    "high": {"min": 56, "max": null, "source": "SAMPLE - verify with ICAR / state agriculture dept"}
+  },
+  "potassium": {
+    "unit": "kg/ha",
+    "low": {"min": null, "max": 140, "source": "SAMPLE - verify with ICAR / state agriculture dept"},
+    "adequate": {"min": 140, "max": 280, "source": "SAMPLE - verify with ICAR / state agriculture dept"},
+    "high": {"min": 280, "max": null, "source": "SAMPLE - verify with ICAR / state agriculture dept"}
+  },
+  "organic_carbon": {
+    "unit": "%",
+    "low": {"min": null, "max": 0.5, "source": "SAMPLE - verify with ICAR / state agriculture dept"},
+    "adequate": {"min": 0.5, "max": 0.75, "source": "SAMPLE - verify with ICAR / state agriculture dept"},
+    "high": {"min": 0.75, "max": null, "source": "SAMPLE - verify with ICAR / state agriculture dept"}
+  }
+}
