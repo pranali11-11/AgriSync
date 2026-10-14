@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Home, Leaf, Tractor, Users, User } from 'lucide-react';
+import { Home, Leaf, Tractor, Users, User, Building2 } from 'lucide-react';
 
 /**
  * Mobile-first Bottom Navigation Bar with large touch targets.
@@ -15,6 +15,7 @@ export const BottomNav = ({ activeTab, onSelectTab }) => {
     { id: 'home', label: t('nav.home'), icon: Home },
     { id: 'advisory', label: t('nav.advisory'), icon: Leaf },
     { id: 'machinery', label: t('nav.machinery'), icon: Tractor },
+    { id: 'schemes', label: t('nav.schemes'), icon: Building2 },
     { id: 'community', label: t('nav.community'), icon: Users },
     { id: 'profile', label: t('nav.profile'), icon: User },
   ];

@@ -1,44 +1,48 @@
-import React from 'react';
-import PropTypes from 'prop-types';
-import { AnimatePresence, motion } from 'framer-motion';
-import { useTranslation } from 'react-i18next';
-import { useOnboardingStore } from '../../store/useOnboardingStore';
-import { Step0Login } from './Step0Login';
-import { Step1Language } from './Step1Language';
-import { Step2Crop } from './Step2Crop';
-import { Step3SowingDate } from './Step3SowingDate';
-import { Step4Area } from './Step4Area';
-import { Step5SoilInfo } from './Step5SoilInfo';
-import { Step6Location } from './Step6Location';
-import { Step7Summary } from './Step7Summary';
-import { ChevronLeft, Sprout } from 'lucide-react';
+import React from "react";
+import PropTypes from "prop-types";
+import { AnimatePresence, motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
+import { useOnboardingStore } from "../../store/useOnboardingStore";
+import { Step0Login } from "./Step0Login";
+import { Step1Language } from "./Step1Language";
+import { Step2Crop } from "./Step2Crop";
+import { Step3SowingDate } from "./Step3SowingDate";
+import { Step4Area } from "./Step4Area";
+import { Step5SoilInfo } from "./Step5SoilInfo";
+import { Step6Location } from "./Step6Location";
+import { Step7Summary } from "./Step7Summary";
+import { ChevronLeft, Sprout } from "lucide-react";
 
 const STEP_TITLES = [
-  'auth.welcome_title',
-  'language.select_title',
-  'crop.select_title',
-  'sowing.title',
-  'area.title',
-  'soil.title',
-  'location.title',
-  'summary.title',
+  "auth.welcome_title",
+  "language.select_title",
+  "crop.select_title",
+  "sowing.title",
+  "area.title",
+  "soil.title",
+  "location.title",
+  "summary.title",
 ];
 
 const TOTAL_STEPS = 8; // Steps 0-7
 
 const slideVariants = {
-  enter: (dir) => ({ x: dir > 0 ? '100%' : '-100%', opacity: 0 }),
+  enter: (dir) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
   center: { x: 0, opacity: 1 },
-  exit: (dir) => ({ x: dir < 0 ? '100%' : '-100%', opacity: 0 }),
+  exit: (dir) => ({ x: dir < 0 ? "100%" : "-100%", opacity: 0 }),
 };
 
 export const OnboardingWizard = ({ onComplete }) => {
   const { t } = useTranslation();
-  const { step, nextStep, prevStep } = useOnboardingStore();
+  const { step, userRole, nextStep, prevStep } = useOnboardingStore();
   const [direction, setDirection] = React.useState(1);
 
   const goNext = () => {
     setDirection(1);
+    if (step === 0 && userRole === "provider") {
+      onComplete();
+      return;
+    }
     nextStep();
   };
 
@@ -49,15 +53,24 @@ export const OnboardingWizard = ({ onComplete }) => {
 
   const renderStep = () => {
     switch (step) {
-      case 0: return <Step0Login onCompleted={goNext} />;
-      case 1: return <Step1Language onNext={goNext} />;
-      case 2: return <Step2Crop onNext={goNext} />;
-      case 3: return <Step3SowingDate onNext={goNext} />;
-      case 4: return <Step4Area onNext={goNext} />;
-      case 5: return <Step5SoilInfo onNext={goNext} />;
-      case 6: return <Step6Location onNext={goNext} />;
-      case 7: return <Step7Summary onFinish={onComplete} />;
-      default: return <Step0Login onCompleted={goNext} />;
+      case 0:
+        return <Step0Login onCompleted={goNext} />;
+      case 1:
+        return <Step1Language onNext={goNext} />;
+      case 2:
+        return <Step2Crop onNext={goNext} />;
+      case 3:
+        return <Step3SowingDate onNext={goNext} />;
+      case 4:
+        return <Step4Area onNext={goNext} />;
+      case 5:
+        return <Step5SoilInfo onNext={goNext} />;
+      case 6:
+        return <Step6Location onNext={goNext} />;
+      case 7:
+        return <Step7Summary onFinish={onComplete} />;
+      default:
+        return <Step0Login onCompleted={goNext} />;
     }
   };
 
@@ -82,7 +95,9 @@ export const OnboardingWizard = ({ onComplete }) => {
               <div className="w-8 h-8 rounded-xl bg-agri-green-700 text-white flex items-center justify-center">
                 <Sprout className="w-4 h-4" />
               </div>
-              <span className="text-xs font-bold text-agri-green-900 dark:text-agri-green-200">AgriSync</span>
+              <span className="text-xs font-bold text-agri-green-900 dark:text-agri-green-200">
+                AgriSync
+              </span>
             </div>
           )}
 
@@ -97,7 +112,7 @@ export const OnboardingWizard = ({ onComplete }) => {
           <motion.div
             className="h-full bg-gradient-to-r from-agri-green-600 to-agri-green-400 rounded-full"
             animate={{ width: `${progressPct}%` }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
           />
         </div>
       </div>
@@ -112,7 +127,7 @@ export const OnboardingWizard = ({ onComplete }) => {
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ type: 'spring', stiffness: 350, damping: 35 }}
+            transition={{ type: "spring", stiffness: 350, damping: 35 }}
             className="absolute inset-0 p-5 overflow-y-auto"
           >
             {renderStep()}

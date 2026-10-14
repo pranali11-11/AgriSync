@@ -6,6 +6,7 @@ from app.models.machine import MachineType, Machine, CropMachineMap
 from app.models.group import BookingGroup, GroupMember
 from app.models.seller import InputSeller
 from app.models.notification import Notification
+from app.models.scheme import Scheme, SchemeNotificationPreference
 
 __all__ = [
     "Base",
@@ -25,4 +26,6 @@ __all__ = [
     "GroupMember",
     "InputSeller",
     "Notification",
+    "Scheme",
+    "SchemeNotificationPreference",
 ]

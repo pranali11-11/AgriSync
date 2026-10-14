@@ -51,8 +51,14 @@ export default api;
 // Convenience wrappers
 export const authApi = {
   requestOtp: (phone) => api.post('/auth/request-otp', { phone }),
-  verifyOtp: (phone, otp, name) =>
-    api.post('/auth/verify-otp', { phone, otp, ...(name ? { name } : {}) }),
+  verifyOtp: (phone, otp, name, role = 'farmer', org_type = 'owner') =>
+    api.post('/auth/verify-otp', {
+      phone,
+      otp,
+      ...(name ? { name } : {}),
+      role,
+      org_type,
+    }),
 };
 
 export const meApi = {
@@ -81,4 +87,30 @@ export const farmsApi = {
 export const soilApi = {
   get: (farmId) => api.get(`/farms/${farmId}/soil-test`),
   create: (farmId, data) => api.post(`/farms/${farmId}/soil-test`, data),
+};
+
+export const machineTypesApi = {
+  list: () => api.get('/crops'), // reuse existing endpoint or add dedicated one
+};
+
+export const providerMachineApi = {
+  listMine: () => api.get('/provider/machines/mine'),
+  create: (data) => api.post('/provider/machines', data),
+  update: (id, data) => api.put(`/provider/machines/${id}`, data),
+  remove: (id) => api.delete(`/provider/machines/${id}`),
+};
+
+export const uploadMachinePhotos = async (machineId, files) => {
+  const form = new FormData();
+  form.append('machine_id', machineId);
+  for (const f of files) form.append('files', f);
+  return api.post('/uploads/machine-photos', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const resourcesApi = {
+  listMachines: (params) => api.get('/resources/machines', { params }),
+  machineDetail: (id, lat, lng) =>
+    api.get(`/resources/machines/${id}`, { params: { lat, lng } }),
 };

@@ -186,10 +186,15 @@ async def _machine_query(
             "machine_type": {"name": machine_type_obj.name, "name_hi": machine_type_obj.name_hi, "name_mr": machine_type_obj.name_mr},
             "provider": {"name": provider_user.name, "org_type": provider.org_type, "verified": bool(provider.verified)},
             "rate_per_acre": machine.rate_per_acre,
+            "mobilization_cost": machine.mobilization_cost,
             "available_from": machine.available_from,
             "available_to": machine.available_to,
             "rating": machine.rating,
             "verified": bool(machine.verified),
+            "photos": machine.photos or [],
+            "description": machine.description,
+            "model_year": machine.model_year,
+            "specifications": machine.specifications or {},
             "distance_km": round(float(distance_m) / 1000, 2),
             "coordinates": coordinates_from_location(machine.location),
         })
@@ -204,7 +209,7 @@ async def list_machines(
     type: Optional[str] = None,
     date: Optional[date] = None,
     max_price: Optional[float] = Query(None, ge=0),
-    verified_only: bool = True,
+    verified_only: bool = False,  # Stage A: show unverified too (with badge)
     sort: str = "distance",
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
@@ -213,6 +218,15 @@ async def list_machines(
 ):
     results, origin = await _machine_query(db, current_user, lat, lng, radius_km, type, date, max_price, verified_only, sort, page, page_size)
     return {"items": results, "page": page, "page_size": page_size, "origin": {"lat": origin[0], "lng": origin[1]}}
+
+
+@router.get("/resources/machine-types")
+async def list_machine_types(db: AsyncSession = Depends(get_db)):
+    rows = (await db.execute(select(MachineType).order_by(MachineType.name))).scalars().all()
+    return [
+        {"id": item.id, "name": item.name, "name_hi": item.name_hi, "name_mr": item.name_mr}
+        for item in rows
+    ]
 
 
 @router.get("/resources/providers")
@@ -279,4 +293,22 @@ async def machine_detail(
         raise HTTPException(status_code=404, detail="Machine not found")
     machine, machine_type_obj, provider, provider_user, distance_m = row
     groups = (await db.execute(select(BookingGroup).where(BookingGroup.machine_id == machine_id, BookingGroup.status == "open", BookingGroup.scheduled_date >= date.today()).order_by(BookingGroup.scheduled_date))).scalars().all()
-    return {"id": machine.id, "resource_type": "machine", "machine_type": {"name": machine_type_obj.name, "name_hi": machine_type_obj.name_hi, "name_mr": machine_type_obj.name_mr}, "provider": {"name": provider_user.name, "phone": provider_user.phone, "org_type": provider.org_type, "verified": bool(provider.verified)}, "rate_per_acre": machine.rate_per_acre, "available_from": machine.available_from, "available_to": machine.available_to, "rating": machine.rating, "verified": bool(machine.verified), "distance_km": round(float(distance_m) / 1000, 2), "coordinates": coordinates_from_location(machine.location), "upcoming_open_groups": [{"id": group.id, "date": group.scheduled_date, "max_acres": group.max_acres} for group in groups]}
+    return {
+        "id": machine.id,
+        "resource_type": "machine",
+        "machine_type": {"name": machine_type_obj.name, "name_hi": machine_type_obj.name_hi, "name_mr": machine_type_obj.name_mr},
+        "provider": {"name": provider_user.name, "phone": provider_user.phone, "org_type": provider.org_type, "verified": bool(provider.verified)},
+        "rate_per_acre": machine.rate_per_acre,
+        "mobilization_cost": machine.mobilization_cost,
+        "available_from": machine.available_from,
+        "available_to": machine.available_to,
+        "rating": machine.rating,
+        "verified": bool(machine.verified),
+        "photos": machine.photos or [],
+        "description": machine.description,
+        "model_year": machine.model_year,
+        "specifications": machine.specifications or {},
+        "distance_km": round(float(distance_m) / 1000, 2),
+        "coordinates": coordinates_from_location(machine.location),
+        "upcoming_open_groups": [{"id": group.id, "date": group.scheduled_date, "max_acres": group.max_acres} for group in groups],
+    }

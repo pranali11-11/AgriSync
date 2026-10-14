@@ -13,14 +13,17 @@ export function AppBottomNav() {
         ? "community"
         : path.startsWith("/profile")
           ? "profile"
-          : path.startsWith("/advisory")
-            ? "advisory"
-            : "home";
+          : path.startsWith("/schemes")
+            ? "schemes"
+            : path.startsWith("/advisory")
+              ? "advisory"
+              : "home";
 
   const routes = {
     home: "/dashboard",
     advisory: "/advisory",
     machinery: "/plan",
+    schemes: "/schemes",
     community: "/groups/nearby",
     profile: "/profile",
   };

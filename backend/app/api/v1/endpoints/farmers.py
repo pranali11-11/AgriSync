@@ -12,6 +12,7 @@ from app.models.user import User, FarmerProfile
 from app.models.crop import Crop, CropStage
 from app.models.farm import Farm, SoilTest
 from app.schemas.farm import validate_irrigation_input
+from sqlalchemy.orm import selectinload
 
 router = APIRouter()
 
@@ -73,6 +74,7 @@ class FarmResponse(BaseModel):
     id: int
     farmer_id: int
     crop_id: int
+    crop_name: Optional[str] = None
     sowing_date: date
     area_acres: float
     soil_type: Optional[str]
@@ -204,9 +206,29 @@ async def list_farmer_farms(
     current_user: User = Depends(require_role("farmer", "admin")),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Farm).where(Farm.farmer_id == current_user.id).order_by(Farm.id.desc())
+    stmt = (
+        select(Farm)
+        .where(Farm.farmer_id == current_user.id)
+        .options(selectinload(Farm.crop))
+        .order_by(Farm.id.desc())
+    )
     farms = (await db.execute(stmt)).scalars().all()
-    return farms
+    # Build response dicts with crop_name populated
+    result = []
+    for farm in farms:
+        result.append(FarmResponse(
+            id=farm.id,
+            farmer_id=farm.farmer_id,
+            crop_id=farm.crop_id,
+            crop_name=farm.crop.name if farm.crop else None,
+            sowing_date=farm.sowing_date,
+            area_acres=farm.area_acres,
+            soil_type=farm.soil_type,
+            current_stage=farm.current_stage,
+            irrigation_type=farm.irrigation_type,
+            irrigation_type_note=farm.irrigation_type_note,
+        ))
+    return result
 
 
 @router.post("/farms", response_model=FarmResponse, status_code=status.HTTP_201_CREATED)

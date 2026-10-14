@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
+  ChevronLeft,
+  ChevronRight,
   LocateFixed,
   Navigation,
   Phone,
@@ -21,6 +23,12 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { AppBottomNav } from "../../components/AppBottomNav";
+import {
+  fetchInputSellers,
+  fetchMachineDetail,
+  fetchMachines,
+  fetchProviders,
+} from "../../api/resources";
 import "leaflet/dist/leaflet.css";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -88,15 +96,25 @@ function DetailCard({ item, onClose }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [detail, setDetail] = useState(item);
+  const [photoIndex, setPhotoIndex] = useState(0);
   useEffect(() => {
+    let active = true;
+    setDetail(item);
+    setPhotoIndex(0);
     if (item.resource_type === "machine" && item.coordinates)
       fetchMachineDetail(item.id, {
         lat: item.coordinates.lat,
         lng: item.coordinates.lng,
       })
-        .then(setDetail)
+        .then((machine) => {
+          if (active) setDetail(machine);
+        })
         .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, [item]);
+  const photos = detail.photos || [];
   const destination = detail.coordinates
     ? `${detail.coordinates.lat},${detail.coordinates.lng}`
     : "";
@@ -113,7 +131,45 @@ function DetailCard({ item, onClose }) {
       >
         <X className="h-5 w-5" />
       </button>
-      <div className="h-28 rounded-xl bg-gradient-to-br from-emerald-100 to-slate-200" />
+      {item.resource_type === "machine" && (
+        <div className="relative h-44 overflow-hidden rounded-xl bg-slate-100">
+          {photos.length ? (
+            <img
+              src={photos[photoIndex]}
+              alt={detail.machine_type?.name || t("machine_detail.photos")}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <p className="flex h-full items-center justify-center text-sm text-slate-500">
+              {t("machine_detail.no_photos")}
+            </p>
+          )}
+          {photos.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  setPhotoIndex(
+                    (photoIndex - 1 + photos.length) % photos.length,
+                  )
+                }
+                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white"
+                aria-label={t("machine_detail.previous_photo")}
+              >
+                <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPhotoIndex((photoIndex + 1) % photos.length)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white"
+                aria-label={t("machine_detail.next_photo")}
+              >
+                <ChevronRight className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </>
+          )}
+        </div>
+      )}
       <h2 className="mt-4 text-xl font-black">
         {detail.machine_type?.name || detail.name}
       </h2>
@@ -121,21 +177,57 @@ function DetailCard({ item, onClose }) {
         {detail.provider?.name} · {detail.provider?.org_type}
       </p>
       <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-        <span className="font-bold">
-          ₹{detail.rate_per_acre || "—"} / acre
-        </span>
+        <span className="font-bold">₹{detail.rate_per_acre || "—"} / acre</span>
         <span>{detail.distance_km} km</span>
         <span>★ {detail.rating || "—"}</span>
-        <span>{detail.verified ? "✓ Verified" : "Unverified"}</span>
+        <span
+          className={
+            detail.verified ? "text-emerald-700" : "font-bold text-amber-800"
+          }
+        >
+          {detail.verified
+            ? t("machine_detail.verified_notice")
+            : t("provider.unverified_badge")}
+        </span>
       </div>
+      {!detail.verified && (
+        <p className="mt-3 rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-900">
+          {t("machine_detail.unverified_notice")}
+        </p>
+      )}
+      {detail.description && (
+        <p className="mt-3 text-sm text-slate-700">{detail.description}</p>
+      )}
+      {detail.model_year && (
+        <p className="mt-2 text-sm">
+          <strong>{t("machine_detail.model_year")}:</strong> {detail.model_year}
+        </p>
+      )}
+      {detail.specifications &&
+        Object.keys(detail.specifications).length > 0 && (
+          <div className="mt-3 border-t pt-3 text-sm">
+            <h3 className="font-bold">{t("machine_detail.specs")}</h3>
+            {detail.specifications.horsepower && (
+              <p>
+                {t("machine_detail.horsepower")}:{" "}
+                {detail.specifications.horsepower} HP
+              </p>
+            )}
+            {detail.specifications.attachments?.length > 0 && (
+              <p>
+                {t("machine_detail.attachments")}:{" "}
+                {detail.specifications.attachments.join(", ")}
+              </p>
+            )}
+          </div>
+        )}
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           onClick={() =>
             navigate(
-              `/groups/new?machine_id=${detail.id}&date=${new Date().toISOString().slice(
-                0,
-                10,
-              )}`,
+              `/groups/new?machine_id=${detail.id}&date=${new Date()
+                .toISOString()
+                .slice(0, 10)}`,
             )
           }
           className="rounded-xl bg-emerald-700 px-3 py-2 text-sm font-bold text-white"
@@ -185,7 +277,7 @@ export default function ResourceMapPage() {
   const [type, setType] = useState(params.get("type") || "");
   const [filterDate, setFilterDate] = useState(params.get("date") || "");
   const [maxPrice, setMaxPrice] = useState("");
-  const [verifiedOnly, setVerifiedOnly] = useState(true);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sort, setSort] = useState("distance");
   const listRefs = useRef({});
   const { location, error: geoError } = useGeolocation({
@@ -466,7 +558,9 @@ export default function ResourceMapPage() {
                   <br />
                   <small>
                     {item.distance_km} km ·{" "}
-                    {item.verified ? t("resources.verified") : t("resources.unverified")}
+                    {item.verified
+                      ? t("resources.verified")
+                      : t("resources.unverified")}
                   </small>
                 </span>
                 <span className="font-bold">

@@ -41,14 +41,19 @@ def _snapshot(group: BookingGroup):
 
 
 async def _group(db, group_id: int, lock: bool = False):
+    if lock:
+        # PostgreSQL rejects FOR UPDATE on queries that include outer joins from eager
+        # relationship loading, so we lock only the BookingGroup row and let the
+        # relationship data load lazily as needed for the guarded mutation path.
+        statement = select(BookingGroup).where(BookingGroup.id == group_id).with_for_update(of=BookingGroup)
+        return (await db.execute(statement)).scalar_one_or_none()
+
     statement = select(BookingGroup).where(BookingGroup.id == group_id).options(
         joinedload(BookingGroup.machine).joinedload(Machine.machine_type),
         joinedload(BookingGroup.machine).joinedload(Machine.provider).joinedload(Provider.user),
         selectinload(BookingGroup.members).joinedload(GroupMember.farmer).joinedload(User.farmer_profile),
         selectinload(BookingGroup.members).joinedload(GroupMember.farm).joinedload(Farm.farmer).joinedload(User.farmer_profile),
     )
-    if lock:
-        statement = statement.with_for_update()
     return (await db.execute(statement)).unique().scalar_one_or_none()
 
 

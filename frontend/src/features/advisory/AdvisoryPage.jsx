@@ -18,10 +18,12 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { askAdvisoryAssistant, fetchAdvisory } from "../../api/advisory";
 import { fetchFarms, saveSoilTest } from "../../api/farmer";
+import { fetchCrops } from "../../api/crops";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
 import { useVoice } from "../../hooks/useVoice";
 import { useNavigate } from "react-router-dom";
 import { AppBottomNav } from "../../components/AppBottomNav";
+import { CropTimeline } from "./CropTimeline";
 
 const CACHE_KEY = "agrisync-last-advisory";
 function getCachedAdvisory() {
@@ -378,29 +380,29 @@ export default function AdvisoryPage() {
   const [question, setQuestion] = useState("");
   const [chat, setChat] = useState([]);
   const [showSoilTest, setShowSoilTest] = useState(false);
+  const [selectedCropPreviewId, setSelectedCropPreviewId] = useState(null);
   const timelineRef = useRef(null);
   const farmsQuery = useQuery({
     queryKey: ["farms"],
     queryFn: fetchFarms,
     refetchOnWindowFocus: true,
   });
+  const cropsQuery = useQuery({
+    queryKey: ["crops"],
+    queryFn: fetchCrops,
+  });
   const selectedFarmId = farmId || farmsQuery.data?.[0]?.id;
   const selectedFarm = farmsQuery.data?.find(
     (farm) => Number(farm.id) === Number(selectedFarmId),
   );
-  useEffect(() => {
-    if (!farmId && selectedFarmId) setFarmId(selectedFarmId);
-  }, [farmId, selectedFarmId, setFarmId]);
-  useEffect(() => {
-    const online = () => setIsOnline(true);
-    const offline = () => setIsOnline(false);
-    window.addEventListener("online", online);
-    window.addEventListener("offline", offline);
-    return () => {
-      window.removeEventListener("online", online);
-      window.removeEventListener("offline", offline);
-    };
-  }, []);
+  const selectedPreviewCrop = useMemo(() => {
+    if (!selectedCropPreviewId || !cropsQuery.data) return null;
+    return cropsQuery.data.find(
+      (c) => Number(c.id) === Number(selectedCropPreviewId),
+    );
+  }, [selectedCropPreviewId, cropsQuery.data]);
+
+  // advisoryQuery MUST be declared before activeTimeline useMemo (TDZ safety)
   const advisoryQuery = useQuery({
     queryKey: ["advisory", selectedFarmId, i18n.language],
     queryFn: () => fetchAdvisory(selectedFarmId, i18n.language),
@@ -421,6 +423,35 @@ export default function AdvisoryPage() {
     enabled: Boolean(selectedFarmId && advisoryQuery.data),
     retry: 1,
   });
+
+  const activeTimeline = useMemo(() => {
+    if (selectedPreviewCrop && Array.isArray(selectedPreviewCrop.stages)) {
+      return selectedPreviewCrop.stages.map((st) => ({
+        stage: st.stage_name,
+        start_day: st.start_day,
+        end_day: st.end_day,
+        stage_description: st.stage_description,
+        source: st.source,
+      }));
+    }
+    return Array.isArray(advisoryQuery.data?.timeline)
+      ? advisoryQuery.data.timeline
+      : [];
+  }, [selectedPreviewCrop, advisoryQuery.data?.timeline]);
+
+  useEffect(() => {
+    if (!farmId && selectedFarmId) setFarmId(selectedFarmId);
+  }, [farmId, selectedFarmId, setFarmId]);
+  useEffect(() => {
+    const online = () => setIsOnline(true);
+    const offline = () => setIsOnline(false);
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    return () => {
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+    };
+  }, []);
   const soilMutation = useMutation({
     mutationFn: (payload) => saveSoilTest(selectedFarmId, payload),
     onSuccess: () => {
@@ -582,22 +613,76 @@ export default function AdvisoryPage() {
             <h1 className="mt-1 text-3xl font-black">Crop advisory</h1>
             <p className="mt-1 text-slate-600">
               {previewDay !== null
-                ? "Preview"
+                ? "Preview Mode"
                 : `${data.stage.name} · day ${data.days_since_sowing}`}
             </p>
           </div>
-          <ListenButton
-            text={fullText || data.disclaimer}
-            lang={i18n.language}
-            label="Listen to advisory"
-            onRead={() => {}}
-          />
-          <button
-            onClick={openMachineryPlan}
-            className="rounded-xl border border-emerald-700 px-3 py-3 text-sm font-bold text-emerald-800"
-          >
-            Machinery Calendar
-          </button>
+
+          {/* Farm and Crop switcher controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            {farmsQuery.data?.length > 1 && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-900 shadow-sm">
+                <span className="text-slate-400 font-normal">Farm:</span>
+                <select
+                  value={selectedFarmId || ""}
+                  onChange={(e) => {
+                    setSelectedCropPreviewId(null);
+                    setFarmId(Number(e.target.value));
+                    setPreviewDay(null);
+                  }}
+                  className="cursor-pointer bg-transparent font-black text-emerald-900 outline-none"
+                  id="farm-select-dropdown"
+                >
+                  {farmsQuery.data.map((f, i) => (
+                    <option key={f.id} value={f.id}>
+                      {f.crop?.name || `Farm #${i + 1}`} ({f.area_acres} ac)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {cropsQuery.data?.length > 0 && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm">
+                <span className="text-slate-400 font-normal">Switch Crop:</span>
+                <select
+                  value={selectedCropPreviewId || ""}
+                  onChange={(e) => {
+                    setSelectedCropPreviewId(
+                      e.target.value ? Number(e.target.value) : null,
+                    );
+                    setPreviewDay(null);
+                  }}
+                  className="cursor-pointer bg-transparent font-black text-slate-900 outline-none"
+                  id="crop-preview-select"
+                >
+                  <option value="">
+                    (Current: {selectedFarm?.crop?.name || "Farm Crop"})
+                  </option>
+                  {cropsQuery.data.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.duration_days}d)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <ListenButton
+              text={fullText || data.disclaimer}
+              lang={i18n.language}
+              label="Listen to advisory"
+              onRead={() => {}}
+            />
+            <button
+              onClick={openMachineryPlan}
+              className="rounded-xl border border-emerald-700 px-3 py-3 text-sm font-bold text-emerald-800"
+            >
+              Machinery Calendar
+            </button>
+          </div>
         </header>
 
         {/* Irrigation and Fertigation Status */}
@@ -643,47 +728,29 @@ export default function AdvisoryPage() {
             Soil test on file. Recommendations use your latest submitted values.
           </div>
         )}
-        <section className="rounded-3xl bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-black">Crop timeline</h2>
-              <p className="text-sm text-slate-500">
-                {previewStage?.stage || data.stage?.name}{" "}
-                {previewDay !== null && "(Preview)"}
-              </p>
-            </div>
-            <span className="text-sm font-bold text-emerald-700">
-              {data.next_stage
-                ? `${data.next_stage.name} in ${data.next_stage.days_until} days`
-                : "Harvest stage"}
-            </span>
-          </div>
-          <div ref={timelineRef} className="relative mt-10 h-16">
-            <div className="absolute left-0 right-0 top-5 h-2 rounded-full bg-slate-200" />
-            <div
-              className="absolute left-0 top-5 h-2 rounded-full bg-emerald-500"
-              style={{
-                width: `${progressPercent}%`,
-              }}
-            />
-            <motion.div
-              drag="x"
-              dragConstraints={timelineRef}
-              dragElastic={0}
-              onDrag={movePreview}
-              onDragEnd={movePreview}
-              className="absolute top-0 h-12 w-12 -translate-x-1/2 cursor-grab rounded-full border-4 border-white bg-emerald-700 shadow-lg active:cursor-grabbing"
-              style={{
-                left: `${progressPercent}%`,
-              }}
-              aria-label="Drag to preview a crop stage"
-            />
-            <div className="absolute inset-x-0 top-12 flex justify-between text-[11px] font-bold text-slate-500">
-              <span>{timeline[0]?.stage || "Sowing"}</span>
-              <span>{lastTimelineStage?.stage || "Harvest"}</span>
-            </div>
-          </div>
-        </section>
+        <CropTimeline
+          timeline={activeTimeline}
+          currentDay={selectedPreviewCrop ? 0 : (data.days_since_sowing || 0)}
+          previewDay={previewDay}
+          onSelectDay={(day) => setPreviewDay(day)}
+          cropName={
+            selectedPreviewCrop
+              ? selectedPreviewCrop.name
+              : selectedFarm?.crop?.name || "Crop"
+          }
+          onOpenMachineryPlan={(stageName) => {
+            const params = new URLSearchParams();
+            if (selectedFarmId) params.set("farm_id", selectedFarmId);
+            if (selectedFarm?.crop_id)
+              params.set("crop_id", selectedFarm.crop_id);
+            if (selectedFarm?.sowing_date)
+              params.set("sowing_date", selectedFarm.sowing_date);
+            if (selectedFarm?.area_acres)
+              params.set("area_acres", selectedFarm.area_acres);
+            if (stageName) params.set("stage", stageName);
+            navigate(`/plan?${params.toString()}`);
+          }}
+        />
         <section>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xl font-black">Soil health</h2>

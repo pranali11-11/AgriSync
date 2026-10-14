@@ -6,9 +6,18 @@ from unittest.mock import AsyncMock, MagicMock
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.api.deps import get_redis
+from app.api.v1.endpoints import auth as auth_endpoint
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import decode_jwt_token
-from app.models.user import User
+from app.models.user import Provider, User
+
+
+def test_local_vite_ports_are_allowed_for_cors():
+    assert "http://localhost:4173" in settings.CORS_ORIGINS
+    assert "http://127.0.0.1:4173" in settings.CORS_ORIGINS
+    assert "http://localhost:4174" in settings.CORS_ORIGINS
+    assert "http://127.0.0.1:4174" in settings.CORS_ORIGINS
 
 
 @pytest.fixture()
@@ -72,6 +81,22 @@ async def test_request_otp_success(mock_redis):
     assert key == "otp:9876543210"
     assert ttl == 300
     assert len(otp) == 6 and otp.isdigit()
+
+
+@pytest.mark.asyncio
+async def test_request_otp_reports_sms_delivery_failure(monkeypatch, mock_redis):
+    provider = type("SMSProvider", (), {"send_otp": AsyncMock(return_value=False)})()
+    monkeypatch.setattr(auth_endpoint, "get_sms_provider", lambda: provider)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post(
+            "/api/v1/auth/request-otp",
+            json={"phone": "9876543210"},
+        )
+
+    assert resp.status_code == 503
+    assert resp.json()["detail"] == "Could not deliver OTP. Please try again later."
+    mock_redis.delete.assert_any_call("otp:9876543210", "otp:attempts:9876543210")
 
 
 @pytest.mark.asyncio
@@ -195,6 +220,35 @@ async def test_verify_otp_success_new_user_creates_user_and_jwt_with_name(mock_r
     assert decoded is not None
     assert decoded["name"] == "Ramesh Patil"
     assert decoded["user_id"] == 42
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_provider_signup_creates_owner_profile(mock_redis, mock_db_session):
+    mock_redis.get = AsyncMock(side_effect=[None, "123456"])
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    mock_db_session.execute.return_value = mock_result
+
+    async def assign_user_id():
+        for call in mock_db_session.add.call_args_list:
+            added = call.args[0]
+            if isinstance(added, User):
+                added.id = 42
+
+    mock_db_session.flush = AsyncMock(side_effect=assign_user_id)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.post(
+            "/api/v1/auth/verify-otp",
+            json={"phone": "9876543210", "otp": "123456", "name": "Machine Owner", "role": "provider"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["user"]["role"] == "provider"
+    provider = next(item for item in mock_db_session.add.call_args_list if isinstance(item.args[0], Provider)).args[0]
+    assert provider.user_id == 42
+    assert provider.org_type == "owner"
+    assert provider.verified is False
 
 
 @pytest.mark.asyncio

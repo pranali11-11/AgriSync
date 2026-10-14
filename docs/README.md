@@ -94,6 +94,7 @@ erDiagram
 AgriSync uses a passwordless phone + OTP authentication flow with Redis rate limiting, SMS adapter architecture, and JWT session tokens.
 
 ### OTP Generation & Storage
+
 - **Code Generation**: Cryptographically secure 6-digit random code (`100000`–`999999`) generated using Python's `secrets` module.
 - **Redis TTL & Key Schema**:
   - `otp:{phone}`: Stores the active 6-digit OTP with a strict **5-minute TTL (300 seconds)**.
@@ -101,13 +102,16 @@ AgriSync uses a passwordless phone + OTP authentication flow with Redis rate lim
   - `ratelimit:otp:{phone}`: Rate limits OTP requests to a max of **3 requests per phone per 10 minutes (600 seconds)**. Exceeding this limit returns `HTTP 429 Too Many Requests`.
 
 ### SMS Provider Adapter
+
 SMS delivery is decoupled behind `BaseSMSProvider` (`backend/app/services/sms.py`):
+
 - **`ConsoleSMSProvider`**: Formats and logs the OTP to stdout/logs for local development. Default when no provider API keys are configured in `.env`.
 - **`TwilioSMSProvider`**: Dispatches SMS via Twilio Messages API using asynchronous HTTP (`httpx`).
 - **`MSG91SMSProvider`**: Dispatches SMS via MSG91 OTP API using asynchronous HTTP (`httpx`).
 - Selection is automatic based on `.env` settings (`SMS_PROVIDER`, `TWILIO_*`, `MSG91_*`).
 
 ### User Registration & Name Validation
+
 - **New Users**: When an unregistered phone number calls `POST /api/v1/auth/verify-otp`, `name` is a **required field** validated between **2 and 60 characters**.
 - **Existing Users (`PUT /api/v1/me`)**: Allows farmers to update their name and language preference. `name` is a required field validated between **2 and 60 characters**.
 - **JWT & Response Payload**:
@@ -115,6 +119,7 @@ SMS delivery is decoupled behind `BaseSMSProvider` (`backend/app/services/sms.py
   - Returned in `POST /api/v1/auth/verify-otp`, `GET /api/v1/me`, and `PUT /api/v1/me`.
 
 ### Frontend Experience
+
 - **OTP Screen**: Displays "Your Name" text input dynamically for new phone numbers.
 - **Resend OTP**: Features a 30-second cooldown timer disabling repeated requests until the cooldown expires.
 - **Error Handling**: Clear error feedback for expired OTPs, incorrect codes, remaining attempt counters, or rate limits.
@@ -172,6 +177,28 @@ The frontend map is available at `/map`. It supports URL filters such as
 `/map?type=sprayer&date=2026-10-05`, clustered resource layers, a debounced
 radius slider, marker/list selection, and temporary booking destinations.
 
+## Provider Machines
+
+New users can select **Machine Owner / Provider** during OTP signup. The account
+is created with role `provider` and a provider profile whose `org_type` defaults
+to `owner` (or can be set to `FPO`, `CHC`, or `service`). Providers manage their
+own listings in the `/provider` dashboard:
+
+- `POST /api/v1/provider/machines` creates a listing with machine type, rate,
+  availability, location, description, model year, specifications, and photo URLs.
+- `GET /api/v1/provider/machines/mine`, `PUT /api/v1/provider/machines/{id}`,
+  and `DELETE /api/v1/provider/machines/{id}` are scoped to the authenticated
+  provider. Another provider's listing returns `403 Forbidden`.
+- `POST /api/v1/uploads/machine-photos` accepts up to five JPEG/PNG images per
+  request, each no larger than 5 MB. Local development stores files under
+  `backend/media/machines/{machine_id}/` and serves them from `/media`. Set
+  `STORAGE_BACKEND=s3` and configure the S3-compatible environment variables to
+  use S3-compatible object storage instead.
+- `GET /api/v1/resources/machines` and `GET /api/v1/resources/machines/{id}`
+  include photos, description, model year, and specifications. New listings
+  default to unverified and are visible in the map when **Verified only** is
+  turned off; verification and reviews are not part of this stage.
+
 ## Group Booking
 
 Group booking uses `member share = acres * rate_per_acre + mobilization_cost * acres / total_acres`.
@@ -193,3 +220,14 @@ stateDiagram-v2
 
 Group membership changes lock the group row, enforce acreage and deadlines, recalculate every
 share, and notify affected users. Member snapshots expose first name, village, and acres only.
+
+## Government Schemes
+
+The `/schemes` catalogue is seeded with central and Maharashtra schemes and can be maintained
+through the admin-only `POST`, `PUT`, and `DELETE /api/v1/schemes` endpoints. The initial catalogue
+is reference material, not a source of current eligibility or benefit guarantees. Rules, required
+documents, application windows, and deadlines change; an administrator must periodically verify
+each entry against its official portal and update `last_verified_on` and `source` after checking.
+Seeded entries carry the warning `Verify current details on official portal before relying on this`.
+Farmers should confirm details with the linked official source before applying. Scheme deadline
+notifications are stored as in-app notifications for users who opt in.

@@ -47,6 +47,11 @@ const NewGroup = lazy(() =>
     default: module.NewGroup,
   })),
 );
+const SchemesPage = lazy(() => import("./features/schemes/SchemesPage"));
+const AdminSchemesPage = lazy(() => import("./features/admin/AdminSchemesPage"));
+const ProviderDashboard = lazy(
+  () => import("./features/provider/ProviderDashboard"),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,11 +65,13 @@ const queryClient = new QueryClient({
 function AppRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { token, step } = useOnboardingStore();
-  const onboardingDone = token && step >= 7;
+  const { token, step, userRole } = useOnboardingStore();
+  const onboardingDone = token && (userRole === "provider" || step >= 7);
 
   const handleOnboardingComplete = () => {
-    navigate("/dashboard", { replace: true });
+    navigate(userRole === "provider" ? "/provider" : "/dashboard", {
+      replace: true,
+    });
   };
 
   return (
@@ -95,7 +102,10 @@ function AppRoutes() {
               path="/"
               element={
                 onboardingDone ? (
-                  <Navigate to="/dashboard" replace />
+                  <Navigate
+                    to={userRole === "provider" ? "/provider" : "/dashboard"}
+                    replace
+                  />
                 ) : (
                   <OnboardingWizard onComplete={handleOnboardingComplete} />
                 )
@@ -112,6 +122,16 @@ function AppRoutes() {
               element={token ? <HomePage /> : <Navigate to="/" replace />}
             />
             <Route
+              path="/provider"
+              element={
+                token && userRole === "provider" ? (
+                  <ProviderDashboard />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+            <Route
               path="/advisory"
               element={token ? <AdvisoryPage /> : <Navigate to="/" replace />}
             />
@@ -125,6 +145,20 @@ function AppRoutes() {
               path="/plan"
               element={
                 token ? <MachineryPlanPage /> : <Navigate to="/" replace />
+              }
+            />
+            <Route
+              path="/schemes"
+              element={token ? <SchemesPage /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/admin/schemes"
+              element={
+                token && userRole === "admin" ? (
+                  <AdminSchemesPage />
+                ) : (
+                  <Navigate to="/" replace />
+                )
               }
             />
             <Route

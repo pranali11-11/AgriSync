@@ -6,6 +6,8 @@ class CropStageBase(BaseModel):
     stage_name: str
     start_day: int = Field(..., ge=0)
     end_day: int = Field(..., ge=0)
+    stage_description: Optional[str] = None
+    source: str = "SAMPLE - verify with ICAR / state agriculture dept"
 
 
 class CropStageCreate(CropStageBase):

@@ -31,10 +31,16 @@ class StageResult:
 
 
 def calculate_stage(days_since_sowing: int, stages: Iterable[Any]) -> StageResult:
-    """Calculate a stage using inclusive start/end day boundaries."""
+    """Calculate a stage using start/end day boundaries."""
     ordered = sorted(stages, key=lambda stage: stage.start_day)
     timeline = [
-        {"stage": stage.stage_name, "start_day": stage.start_day, "end_day": stage.end_day}
+        {
+            "stage": stage.stage_name,
+            "start_day": stage.start_day,
+            "end_day": stage.end_day,
+            "stage_description": getattr(stage, "stage_description", None),
+            "source": getattr(stage, "source", SOURCE),
+        }
         for stage in ordered
     ]
     if not ordered:
@@ -42,9 +48,16 @@ def calculate_stage(days_since_sowing: int, stages: Iterable[Any]) -> StageResul
 
     current_index = next(
         (index for index, stage in enumerate(ordered)
-         if stage.start_day <= days_since_sowing <= stage.end_day),
+         if (stage.start_day <= days_since_sowing < stage.end_day)
+         or (index == len(ordered) - 1 and stage.start_day <= days_since_sowing <= stage.end_day)),
         None,
     )
+    if current_index is None:
+        current_index = next(
+            (index for index, stage in enumerate(ordered)
+             if stage.start_day <= days_since_sowing <= stage.end_day),
+            None,
+        )
     if current_index is None:
         current_index = 0 if days_since_sowing < ordered[0].start_day else len(ordered) - 1
 

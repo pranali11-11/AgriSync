@@ -1,4 +1,5 @@
 import secrets
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,10 +11,11 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import create_access_token, create_refresh_token, decode_jwt_token
 from app.api.deps import get_redis, RedisWrapper
-from app.models.user import User
+from app.models.user import User, Provider
 from app.services.sms import get_sms_provider
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class RequestOTPInput(BaseModel):
@@ -24,6 +26,8 @@ class VerifyOTPInput(BaseModel):
     phone: str = Field(..., pattern=r"^\+?[0-9]{10,15}$")
     otp: str = Field(..., min_length=6, max_length=6)
     name: Optional[str] = Field(None, min_length=2, max_length=60)
+    role: str = Field("farmer", pattern=r"^(farmer|provider)$")  # chosen at signup
+    org_type: str = Field("owner", pattern=r"^(owner|FPO|CHC|service)$")  # provider sub-type
 
 
 class RefreshTokenInput(BaseModel):
@@ -67,7 +71,17 @@ async def request_otp(
 
     # Send OTP via SMS Provider adapter
     sms_provider = get_sms_provider()
-    await sms_provider.send_otp(phone, otp)
+    try:
+        delivered = await sms_provider.send_otp(phone, otp)
+    except Exception:
+        logger.exception("OTP delivery failed for phone ending in %s", phone[-4:])
+        delivered = False
+    if not delivered:
+        await redis.delete(otp_key, attempts_key)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not deliver OTP. Please try again later.",
+        )
 
     # Check if user already exists
     stmt = select(User).where(User.phone == phone)
@@ -149,13 +163,22 @@ async def verify_otp(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Name is required for new users and must be between 2 and 60 characters."
             )
+        chosen_role = payload.role  # "farmer" or "provider"
         user = User(
             name=clean_name,
             phone=phone,
-            role="farmer",
+            role=chosen_role,
             language="en"
         )
         db.add(user)
+        await db.flush()  # get user.id before creating related row
+        if chosen_role == "provider":
+            provider_row = Provider(
+                user_id=user.id,
+                org_type=payload.org_type,
+                verified=False,
+            )
+            db.add(provider_row)
         await db.commit()
         await db.refresh(user)
     else:
@@ -182,7 +205,7 @@ async def verify_otp(
             "name": user.name,
             "phone": user.phone,
             "role": user.role,
-            "language": user.language
+            "language": user.language,
         }
     }
 

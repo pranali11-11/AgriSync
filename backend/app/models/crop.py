@@ -30,6 +30,12 @@ class CropStage(Base):
     stage_name: Mapped[str] = mapped_column(String(100), nullable=False)
     start_day: Mapped[int] = mapped_column(Integer, nullable=False)
     end_day: Mapped[int] = mapped_column(Integer, nullable=False)
+    stage_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(
+        String(255),
+        default="SAMPLE - verify with ICAR / state agriculture dept",
+        nullable=False
+    )
 
     crop: Mapped["Crop"] = relationship("Crop", back_populates="stages")
     nutrient_rules: Mapped[List["NutrientRule"]] = relationship("NutrientRule", back_populates="stage")

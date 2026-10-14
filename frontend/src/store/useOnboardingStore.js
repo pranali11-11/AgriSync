@@ -25,6 +25,7 @@ export const useOnboardingStore = create(
       refreshToken: null,
       userId: null,
       userName: '',
+      userRole: 'farmer',  // 'farmer' | 'provider'
       farmId: null,
 
       // Navigation
@@ -41,8 +42,8 @@ export const useOnboardingStore = create(
         set({ soilType: soil, irrigationType: irrigation, irrigationTypeNote }),
       setLocation: (village, district, state, lat, lng) =>
         set({ village, district, state, lat, lng }),
-      setAuth: (token, refreshToken, userId, name) =>
-        set({ token, refreshToken, userId, userName: name }),
+      setAuth: (token, refreshToken, userId, name, role = 'farmer') =>
+        set({ token, refreshToken, userId, userName: name, userRole: role }),
       setPhone: (phone) => set({ phone }),
       setUserName: (name) => set({ userName: name }),
       setFarmId: (farmId) => set({ farmId }),
@@ -68,6 +69,7 @@ export const useOnboardingStore = create(
         refreshToken: state.refreshToken,
         userId: state.userId,
         userName: state.userName,
+        userRole: state.userRole,
         farmId: state.farmId,
         phone: state.phone,
         step: state.step,

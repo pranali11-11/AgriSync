@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Smartphone, Loader2, KeyRound, CheckCircle2, RotateCcw, User as UserIcon } from 'lucide-react';
+import { Smartphone, Loader2, KeyRound, CheckCircle2, RotateCcw, User as UserIcon, Tractor, Wrench, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authApi } from '../../services/api';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
@@ -24,6 +24,9 @@ export const Step0Login = ({ onCompleted }) => {
   const [isNewUser, setIsNewUser] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [devOtp, setDevOtp] = useState(''); // Only populated in dev/non-production mode
+  // Role selection — only visible to new users
+  const [selectedRole, setSelectedRole] = useState('farmer');
+  const [orgType, setOrgType] = useState('owner');
 
   // 30-second cooldown timer for Resend OTP
   useEffect(() => {
@@ -108,10 +111,12 @@ export const Step0Login = ({ onCompleted }) => {
       const { data } = await authApi.verifyOtp(
         cleanPhone,
         otp,
-        isNewUser ? name.trim() : undefined
+        isNewUser ? name.trim() : undefined,
+        isNewUser ? selectedRole : undefined,
+        isNewUser ? orgType : undefined,
       );
       const user = data.user || {};
-      setAuth(data.access_token, data.refresh_token, user.id, user.name || '');
+      setAuth(data.access_token, data.refresh_token, user.id, user.name || '', user.role || 'farmer');
       setStage('success');
       setTimeout(onCompleted, 800);
     } catch (e) {
@@ -226,8 +231,68 @@ export const Step0Login = ({ onCompleted }) => {
                   <p className="text-xs text-slate-400 dark:text-slate-500 px-1">
                     {t('auth.name_required')}
                   </p>
+
+                  {/* Role toggle */}
+                  <div className="pt-3">
+                    <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">
+                      {t('auth.role_label')}
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { value: 'farmer', icon: <Tractor className="w-5 h-5" />, label: t('auth.role_farmer'), hint: t('auth.role_hint_farmer') },
+                        { value: 'provider', icon: <Wrench className="w-5 h-5" />, label: t('auth.role_provider'), hint: t('auth.role_hint_provider') },
+                      ].map(({ value, icon, label, hint }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          id={`role-${value}-btn`}
+                          onClick={() => setSelectedRole(value)}
+                          className={`flex flex-col items-center gap-1.5 rounded-2xl border-2 p-3 text-center transition-all ${
+                            selectedRole === value
+                              ? 'border-agri-green-600 bg-agri-green-50 dark:bg-agri-green-900/30 text-agri-green-700 dark:text-agri-green-300'
+                              : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                          }`}
+                        >
+                          {icon}
+                          <span className="text-xs font-bold leading-tight">{label}</span>
+                          <span className="text-[10px] leading-tight opacity-70">{hint}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* org_type selector — only when provider chosen */}
+                  <AnimatePresence>
+                    {selectedRole === 'provider' && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden pt-2"
+                      >
+                        <label className="block text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                          {t('auth.org_type_label')}
+                        </label>
+                        <div className="relative">
+                          <select
+                            id="org-type-select"
+                            value={orgType}
+                            onChange={(e) => setOrgType(e.target.value)}
+                            className={`${INPUT_CLASS} appearance-none pr-10 text-base font-medium`}
+                          >
+                            <option value="owner">{t('auth.org_type_owner')}</option>
+                            <option value="FPO">{t('auth.org_type_fpo')}</option>
+                            <option value="CHC">{t('auth.org_type_chc')}</option>
+                            <option value="service">{t('auth.org_type_service')}</option>
+                          </select>
+                          <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               )}
+
 
               <div>
                 <label className="block text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">

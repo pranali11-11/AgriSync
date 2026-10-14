@@ -1,6 +1,6 @@
 from datetime import date
-from typing import Optional, List
-from sqlalchemy import String, Integer, ForeignKey, Float, Boolean, Date, Index, CheckConstraint, Text
+from typing import Optional, List, Any
+from sqlalchemy import String, Integer, ForeignKey, Float, Boolean, Date, Index, CheckConstraint, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from geoalchemy2 import Geography
 from app.core.database import Base
@@ -30,10 +30,17 @@ class Machine(Base):
         Text().with_variant(Geography(geometry_type="POINT", srid=4326), "postgresql"), nullable=False
     )
     rate_per_acre: Mapped[float] = mapped_column(Float, nullable=False)
+    mobilization_cost: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     available_from: Mapped[date] = mapped_column(Date, nullable=False)
     available_to: Mapped[date] = mapped_column(Date, nullable=False)
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     rating: Mapped[float] = mapped_column(Float, default=4.5, nullable=False)
+
+    # Rich listing fields added in Stage A
+    photos: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)          # list[str] of public photo URLs
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    model_year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    specifications: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)  # e.g. {"horsepower": 45, "attachments": ["rotavator"]}
 
     __table_args__ = (
         Index("idx_machines_location_gist", "location", postgresql_using="gist"),
